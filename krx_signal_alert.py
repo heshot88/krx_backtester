@@ -1,9 +1,15 @@
+import pandas as pd
 from dotenv import load_dotenv
 import os
 
 from sqlalchemy import create_engine
 from krx.krx_backtest.indicator_package import *
+from krx.krx_backtest.trade_manager_class import TradeManager
 import datetime
+from openpyxl import Workbook
+from openpyxl.styles import NamedStyle
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
 
 connection = None
 
@@ -117,16 +123,16 @@ def calc_RSI_MACD(df, st_date):
     # st_date보다 큰 날짜만 필터링
     filtered_df = df[df['base_date'] > st_date]
 
-    # 엑셀 파일로 저장
-    output_file_path = 'filtered_data.xlsx'
     # 결과 출력
-    filtered_df[['base_date', 'index_value', 'RSI_MACD', 'RSI_MACD_Signal', 'ACTION', 'differential', 'trend',
-                 'signal', 'last_action']].to_excel(output_file_path, index=False)
+    # print(filtered_df[
+    #           ['base_date', 'index_value', 'RSI_MACD', 'RSI_MACD_Signal', 'ACTION', 'differential', 'trend', 'signal',
+    #            'last_action']])
 
     return filtered_df
 
 
 def get_index_values(index_name, st_date):
+    global connection
     index_name = index_name.strip()
     st_date = st_date.strip()
     # st_date를 datetime 객체로 변환
@@ -148,9 +154,91 @@ def get_index_values(index_name, st_date):
     df = pd.read_sql(query, connection, params=params)
 
     # base_date를 인덱스로 설정
-    df['base_date'] = pd.to_datetime(df['base_date'])
+    df['base_date'] = pd.to_datetime(df['base_date']).dt.date
 
     return df
+
+
+def get_krx_etf_values(index_name, st_date):
+    global connection
+    index_name = index_name.strip()
+    st_date = st_date.strip()
+    if index_name == 'KOSPI':
+        short_code = 'A069500'
+    elif index_name == 'KOSDAQ':
+        short_code = 'A069500'
+    elif index_name == 'NASDAQ':
+        short_code = 'A304940'
+    else:
+        return None
+
+    query = """
+        SELECT base_date, korean_name, close_price,short_code
+        FROM krx_etf_ohlc
+        WHERE short_code = %s
+        AND base_date >= %s
+        ORDER BY base_date;
+        """
+
+    params = (short_code, st_date)
+    df = pd.read_sql(query, connection, params=params)
+
+    # base_date를 인덱스로 설정
+    df['base_date'] = pd.to_datetime(df['base_date']).dt.date
+
+    return df
+
+
+def save_to_excel(df):
+    output_file_path = 'D:\\Source\\python\\krx\\result\\result_data_' + str(
+        datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')) + ".xlsx"
+    
+    result_df = df
+
+    with pd.ExcelWriter(output_file_path, engine='openpyxl') as writer:
+        result_df.to_excel(writer, sheet_name='결과', index=False)
+        workbook = writer.book
+        worksheet = writer.sheets['결과']
+
+        # 숫자 서식 스타일 정의
+        comma_style = NamedStyle(name="comma_style", number_format="#,##0")
+        percentage_style = NamedStyle(name="percentage_style", number_format="0.00%")
+
+        # 스타일을 workbook에 추가
+        if "comma_style" not in workbook.named_styles:
+            workbook.add_named_style(comma_style)
+        if "percentage_style" not in workbook.named_styles:
+            workbook.add_named_style(percentage_style)
+
+        # 서식을 적용할 범위 설정
+        columns_comma = ["B", "C", "D", "E", "F", "G", "I", "K"]  # 세 자리마다 콤마 서식
+        columns_percentage = ["H", "L", "M"]  # 백분율 서식
+
+        # 각 셀에 대해 서식 적용
+        for col in columns_comma:
+            for row in range(2, len(result_df) + 2):  # 데이터가 2행부터 시작 (헤더 제외)
+                cell = worksheet[f"{col}{row}"]
+                cell.style = comma_style
+
+        for col in columns_percentage:
+            for row in range(2, len(result_df) + 2):
+                cell = worksheet[f"{col}{row}"]
+                cell.style = percentage_style
+
+            # 열 너비 조정
+        for col in worksheet.columns:
+            max_length = 0
+            column = col[0].column_letter  # 컬럼 이름 가져오기
+            for cell in col:
+                try:
+                    # 셀의 길이 계산 (데이터의 길이와 비교하여 최대값 찾기)
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 10)  # 여유 공간 추가
+            worksheet.column_dimensions[column].width = adjusted_width
+    print(f"Data with formatting has been successfully saved to {output_file_path}")
 
 
 def connect_db():
@@ -183,10 +271,71 @@ def main():
         return
 
     st_date = "2023-01-01"
+    index_name = "KOSPI"
+    df = get_index_values(index_name, st_date)
+    pd_st_date = pd.to_datetime(st_date).date()
+    rsi_macd_df = calc_RSI_MACD(df, pd_st_date)
 
-    df = get_index_values("KOSPI", st_date)
+    etf_df = get_krx_etf_values(index_name, st_date)
 
-    rsi_macd_df = calc_RSI_MACD(df, st_date)
+    merged_df = pd.merge(rsi_macd_df, etf_df, on='base_date',
+                         how='left')  # how='inner'는 기본값, 필요에 따라 outer, left, right 변경 가능
+
+    print(merged_df)
+    trader = TradeManager(initial_ratio=0.5)
+    # result_df를 위한 컬럼 헤더 설정
+    columns = [
+        "일자", "가격", "잔고수량", "매입 총액", "평가 금액", "잔고평가", "수수료", "원금대비 수익률",
+        "실현손익", "액션", "홀딩 잔고평가", "홀딩수익률", "수익률 비교"
+    ]
+
+    result_df = pd.DataFrame(columns=columns)
+
+    for idx, row in merged_df.iterrows():
+        trade_result = None
+
+        price = row['close_price']
+        if price is None:
+            continue
+
+        if idx == 0:
+            trader.init_buy_and_hold(price)
+        if row['last_action'] == 'ADD':
+            trade_result = trader.buy_stock(price)
+        elif row['last_action'] == 'REDUCE':
+            trade_result = trader.sell_stock(price)
+
+        profit = trader.calc_profit_rate(price)
+        buy_and_hold = trader.calc_buy_and_hold(price)
+        new_row = {
+            "일자": row['base_date'],
+            "가격": row['close_price'],
+            "잔고수량": trader.total_shares,
+            "매입 총액": trader.total_investment,
+            "평가 금액": profit['eval_amount'],
+            "잔고평가": trader.remaining_cash + profit['eval_amount'],
+            "수수료": trade_result['fee'] if trade_result is not None else 0,
+            "원금대비 수익률": profit['profit_rate'],
+            "실현손익": profit['realized_profit'],
+            "액션": row['last_action'],
+            "홀딩 잔고평가": buy_and_hold['eval_amount'],
+            "홀딩수익률": buy_and_hold['profit_rate'],
+            "수익률 비교": profit['profit_rate'] - buy_and_hold['profit_rate']
+        }
+
+        # 새로운 행을 DataFrame으로 변환
+        new_row_df = pd.DataFrame([new_row])
+
+        # 모든 값이 NaN인 열 제거
+        new_row_df = new_row_df.dropna(how='all', axis=1)
+
+        # 새로운 행이 비어 있지 않을 때만 추가
+        if not new_row_df.empty:
+            result_df = pd.concat([result_df, new_row_df], ignore_index=True)
+
+    # result_df를 엑셀로 저장
+
+    save_to_excel(result_df)
 
     connection.close()
 

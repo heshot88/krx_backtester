@@ -1,8 +1,9 @@
-/.idea/
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
 ### Python ###
+.idea/
+result/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -175,3 +176,5 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+*.xlsx

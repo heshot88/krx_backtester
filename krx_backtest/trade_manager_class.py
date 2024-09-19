@@ -9,9 +9,9 @@ class TradeManager:
         self.initial_ratio = initial_ratio
         self.buy_ratio = buy_ratio
         self.sell_ratio = sell_ratio
-        self.buy_fee_rate = buy_fee_rate  # 매수 수수료율
+        self.buy_fee_rate = buy_fee_rate / 100  # 매수 수수료율
         self.remaining_cash = initial_investment  # 초기 잔액
-        self.sell_fee_rate = sell_fee_rate
+        self.sell_fee_rate = sell_fee_rate / 100
         self.total_investment = 0  # 총 매입 금액
         self.total_shares = 0  # 총 보유 주식 수량
         self.total_realized_profit = 0  # 총 실현손익
@@ -27,7 +27,7 @@ class TradeManager:
 
     def calc_buy_and_hold(self, trade_price):
         eval_amount = self.buy_and_hold_shares * trade_price + self.buy_and_hold_remaining_cash
-        profit = eval_amount / self.initial_investment
+        profit = (eval_amount / self.initial_investment) - 1
 
         return {
             'profit_rate': profit,
@@ -65,7 +65,7 @@ class TradeManager:
 
         trade_real_amount = trade_qty * trade_price
 
-        buy_fee = trade_real_amount * self.buy_fee_rate
+        buy_fee = int(trade_real_amount * self.buy_fee_rate)
 
         trade_real_amount = trade_real_amount + buy_fee
 
@@ -88,8 +88,8 @@ class TradeManager:
             'remaining_cash': self.remaining_cash,
             'total_investment': self.total_investment,
             'total_shares': self.total_shares,
-            'purchase_amounts': self.purchase_amounts,
-            'purchase_quantities': self.purchase_quantities
+            'total_realized_profit': self.total_realized_profit,
+            'fee': buy_fee
         }
 
     def sell_stock(self, trade_price):
@@ -132,6 +132,8 @@ class TradeManager:
 
         # 총 잔고 수량 업데이트
         self.total_shares -= trade_qty
+        sell_fee = int(trade_qty * trade_price * self.sell_fee_rate)
+        self.remaining_cash = self.remaining_cash + (trade_qty * trade_price) - sell_fee
 
         # 결과 반환
         return {
@@ -139,8 +141,7 @@ class TradeManager:
             'total_investment': self.total_investment,
             'total_shares': self.total_shares,
             'total_realized_profit': self.total_realized_profit,
-            'purchase_amounts': list(self.purchase_amounts),
-            'purchase_quantities': list(self.purchase_quantities)
+            'fee': sell_fee
         }
 
     def calc_profit_rate(self, trade_price):
@@ -157,5 +158,6 @@ class TradeManager:
         # 평가 금액과 수익률 반환
         return {
             'eval_amount': eval_amount,
-            'profit_rate': profit_rate
+            'profit_rate': profit_rate,
+            'realized_profit': self.total_realized_profit
         }
