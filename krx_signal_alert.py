@@ -97,7 +97,7 @@ def calc_last_action(row, df):
         return None
 
 
-def calc_RSI_MACD(df, st_date):
+def calc_RSI_MACD(df, st_date, column_name):
     # 매개변수 설정
     rsi_period = 14
     short_period = 12
@@ -106,7 +106,7 @@ def calc_RSI_MACD(df, st_date):
     ma_type = 'ema'  # 이평 방법: EMA
 
     # RSI + MACD 계산
-    df['RSI_MACD'], df['RSI_MACD_Signal'] = RSI_MACD(df['index_value'], rsi_period, short_period, long_period,
+    df['RSI_MACD'], df['RSI_MACD_Signal'] = RSI_MACD(df[column_name], rsi_period, short_period, long_period,
                                                      signal_period, ma_type)
 
     # df에 signal_simple 함수 적용하여 ACTION 컬럼 추가
@@ -129,6 +129,26 @@ def calc_RSI_MACD(df, st_date):
     #            'last_action']])
 
     return filtered_df
+
+
+def get_weekly_ohlc(df, column_name):
+    # 데이터프레임이 비어있는 경우 처리
+    if df.empty:
+        return pd.DataFrame()
+
+        # base_date를 주 단위로 변환하여 'week' 열 생성
+    df['base_date'] = pd.to_datetime(df['base_date']).dt.to_period('W').apply(lambda x: x.start_time.date())
+
+    # 주 단위로 그룹화하여 OHLC 값 계산
+    weekly_ohlc = df.groupby('base_date').agg(
+        open_price=(column_name, 'first'),
+        high_price=(column_name, 'max'),
+        low_price=(column_name, 'min'),
+        close_price=(column_name, 'last')
+    ).reset_index()
+
+    # 결과 반환
+    return weekly_ohlc
 
 
 def get_index_values(index_name, st_date):
@@ -189,10 +209,10 @@ def get_krx_etf_values(index_name, st_date):
     return df
 
 
-def save_to_excel(df):
-    output_file_path = 'D:\\Source\\python\\krx\\result\\result_data_' + str(
+def save_to_excel(df, name="result_data"):
+    output_file_path = 'D:\\Source\\python\\krx\\result\\' + name + str(
         datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')) + ".xlsx"
-    
+
     result_df = df
 
     with pd.ExcelWriter(output_file_path, engine='openpyxl') as writer:
@@ -266,24 +286,9 @@ def connect_db():
         return False
 
 
-def main():
-    if not connect_db():
-        return
+def backtest(df, initial_ratio=0.5):
+    day_trader = TradeManager(initial_ratio=initial_ratio)
 
-    st_date = "2023-01-01"
-    index_name = "KOSPI"
-    df = get_index_values(index_name, st_date)
-    pd_st_date = pd.to_datetime(st_date).date()
-    rsi_macd_df = calc_RSI_MACD(df, pd_st_date)
-
-    etf_df = get_krx_etf_values(index_name, st_date)
-
-    merged_df = pd.merge(rsi_macd_df, etf_df, on='base_date',
-                         how='left')  # how='inner'는 기본값, 필요에 따라 outer, left, right 변경 가능
-
-    print(merged_df)
-    trader = TradeManager(initial_ratio=0.5)
-    # result_df를 위한 컬럼 헤더 설정
     columns = [
         "일자", "가격", "잔고수량", "매입 총액", "평가 금액", "잔고평가", "수수료", "원금대비 수익률",
         "실현손익", "액션", "홀딩 잔고평가", "홀딩수익률", "수익률 비교"
@@ -291,7 +296,7 @@ def main():
 
     result_df = pd.DataFrame(columns=columns)
 
-    for idx, row in merged_df.iterrows():
+    for idx, row in df.iterrows():
         trade_result = None
 
         price = row['close_price']
@@ -299,21 +304,21 @@ def main():
             continue
 
         if idx == 0:
-            trader.init_buy_and_hold(price)
+            day_trader.init_buy_and_hold(price)
         if row['last_action'] == 'ADD':
-            trade_result = trader.buy_stock(price)
+            trade_result = day_trader.buy_stock(price)
         elif row['last_action'] == 'REDUCE':
-            trade_result = trader.sell_stock(price)
+            trade_result = day_trader.sell_stock(price)
 
-        profit = trader.calc_profit_rate(price)
-        buy_and_hold = trader.calc_buy_and_hold(price)
+        profit = day_trader.calc_profit_rate(price)
+        buy_and_hold = day_trader.calc_buy_and_hold(price)
         new_row = {
             "일자": row['base_date'],
             "가격": row['close_price'],
-            "잔고수량": trader.total_shares,
-            "매입 총액": trader.total_investment,
+            "잔고수량": day_trader.total_shares,
+            "매입 총액": day_trader.total_investment,
             "평가 금액": profit['eval_amount'],
-            "잔고평가": trader.remaining_cash + profit['eval_amount'],
+            "잔고평가": day_trader.remaining_cash + profit['eval_amount'],
             "수수료": trade_result['fee'] if trade_result is not None else 0,
             "원금대비 수익률": profit['profit_rate'],
             "실현손익": profit['realized_profit'],
@@ -333,9 +338,46 @@ def main():
         if not new_row_df.empty:
             result_df = pd.concat([result_df, new_row_df], ignore_index=True)
 
-    # result_df를 엑셀로 저장
+    return result_df
 
-    save_to_excel(result_df)
+
+def main():
+    if not connect_db():
+        return
+
+    st_date = "2023-01-01"
+    index_name = "KOSPI"
+    day_index_df = get_index_values(index_name, st_date)
+
+    pd_st_date = pd.to_datetime(st_date).date()
+    rsi_macd_df = calc_RSI_MACD(day_index_df, pd_st_date, "index_value")
+    day_etf_df = get_krx_etf_values(index_name, st_date)
+
+    day_merged_df = pd.merge(rsi_macd_df, day_etf_df, on='base_date',
+                             how='left')
+
+    day_result_df = backtest(day_merged_df)
+
+    # 주봉 기준 백테스트
+    week_index_df = get_weekly_ohlc(day_index_df, 'index_value')
+
+    week_rsi_macd_df = calc_RSI_MACD(week_index_df, pd_st_date, "close_price")
+
+    print(week_rsi_macd_df)
+    week_etf_df = get_weekly_ohlc(day_etf_df, 'close_price')
+
+    week_merged_df = pd.merge(week_rsi_macd_df, week_etf_df, on='base_date',
+                              how='left')  # how='inner'는 기본
+
+    week_merged_df['close_price'] = week_merged_df['close_price_y']
+    week_merged_df = week_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
+    print(week_merged_df)
+    # how='inner'는 기본값, 필요에 따라 outer, left, right 변경 가능
+
+    week_result_df = backtest(week_merged_df)
+    # result_df를 엑셀로 저장
+    save_to_excel(day_result_df, index_name + "_day_result_data")
+    save_to_excel(week_result_df, index_name + "_week_result_data")
 
     connection.close()
 

@@ -2,7 +2,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
 ### Python ###
-.idea/
+.idea/**/
 result/
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -177,4 +177,7 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-*.xlsx
+*.xlsx!/.idea/
+!/.idea/
+!/.idea/krx.iml
+!/.idea/misc.xml
