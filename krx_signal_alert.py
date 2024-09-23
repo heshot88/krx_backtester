@@ -1,17 +1,22 @@
 import pandas as pd
 from dotenv import load_dotenv
 import os
-
+import asyncio
 from sqlalchemy import create_engine
-from krx.krx_backtest.indicator_package import *
-from krx.krx_backtest.trade_manager_class import TradeManager
+from krx_backtest.indicator_package import *
+from krx_backtest.trade_manager_class import TradeManager
 import datetime
 from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
 
+from krx_telegram import TelegramSender
+
 connection = None
+
+TOKEN = '6588514172:AAH5hED9lPuPcMB7VJ8pHvWFWSWQya5aj80'
+CHAT_ID = '-1002209543022'
 
 
 def signal_simple(row):
@@ -116,8 +121,6 @@ def calc_RSI_MACD(df, st_date, column_name):
     # trend 값 계산하여 df에 추가
     df['trend'] = df.apply(lambda row: calc_trend(row, df), axis=1)
 
-    df['action_signal'] = None
-
     df['signal'] = df.apply(calc_signal, axis=1)
     df['last_action'] = df.apply(lambda row: calc_last_action(row, df), axis=1)
     # st_date보다 큰 날짜만 필터링
@@ -131,13 +134,13 @@ def calc_RSI_MACD(df, st_date, column_name):
     return filtered_df
 
 
-def get_weekly_ohlc(df, column_name):
+def get_ohlc(df, column_name, type='W'):
     # 데이터프레임이 비어있는 경우 처리
     if df.empty:
         return pd.DataFrame()
 
         # base_date를 주 단위로 변환하여 'week' 열 생성
-    df['base_date'] = pd.to_datetime(df['base_date']).dt.to_period('W').apply(lambda x: x.start_time.date())
+    df['base_date'] = pd.to_datetime(df['base_date']).dt.to_period(type).apply(lambda x: x.start_time.date())
 
     # 주 단위로 그룹화하여 OHLC 값 계산
     weekly_ohlc = df.groupby('base_date').agg(
@@ -304,13 +307,13 @@ def backtest(df, initial_ratio=0.5):
             continue
 
         if idx == 0:
-            day_trader.init_buy_and_hold(price)
+            day_trader.init_buy_and_hold(price)  # buy and hold 전략 초기화
         if row['last_action'] == 'ADD':
-            trade_result = day_trader.buy_stock(price)
+            trade_result = day_trader.buy_stock(price)  # 매수
         elif row['last_action'] == 'REDUCE':
-            trade_result = day_trader.sell_stock(price)
+            trade_result = day_trader.sell_stock(price)  # 매도
 
-        profit = day_trader.calc_profit_rate(price)
+        profit = day_trader.calc_profit_rate(price)  # 현재 평가
         buy_and_hold = day_trader.calc_buy_and_hold(price)
         new_row = {
             "일자": row['base_date'],
@@ -341,7 +344,7 @@ def backtest(df, initial_ratio=0.5):
     return result_df
 
 
-def main():
+async def main():
     if not connect_db():
         return
 
@@ -359,28 +362,46 @@ def main():
     day_result_df = backtest(day_merged_df)
 
     # 주봉 기준 백테스트
-    week_index_df = get_weekly_ohlc(day_index_df, 'index_value')
-
+    week_index_df = get_ohlc(day_index_df, 'index_value')
     week_rsi_macd_df = calc_RSI_MACD(week_index_df, pd_st_date, "close_price")
-
-    print(week_rsi_macd_df)
-    week_etf_df = get_weekly_ohlc(day_etf_df, 'close_price')
-
+    week_etf_df = get_ohlc(day_etf_df, 'close_price')
     week_merged_df = pd.merge(week_rsi_macd_df, week_etf_df, on='base_date',
                               how='left')  # how='inner'는 기본
 
     week_merged_df['close_price'] = week_merged_df['close_price_y']
     week_merged_df = week_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
-    print(week_merged_df)
+    # print(week_merged_df)
+    week_result_df = backtest(week_merged_df)
+
+    month_index_df = get_ohlc(day_index_df, 'index_value', 'M')
+    month_rsi_macd_df = calc_RSI_MACD(month_index_df, pd_st_date, "close_price")
+    month_etf_df = get_ohlc(day_etf_df, 'close_price', 'M')
+    month_merged_df = pd.merge(month_rsi_macd_df, month_etf_df, on='base_date',
+                               how='left')  # how='inner'는 기본
+
+    month_merged_df['close_price'] = month_merged_df['close_price_y']
+    month_merged_df = month_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
+    print(month_merged_df)
     # how='inner'는 기본값, 필요에 따라 outer, left, right 변경 가능
 
-    week_result_df = backtest(week_merged_df)
-    # result_df를 엑셀로 저장
-    save_to_excel(day_result_df, index_name + "_day_result_data")
-    save_to_excel(week_result_df, index_name + "_week_result_data")
+    month_result_df = backtest(month_merged_df)
+
+    telegram_sender = TelegramSender(TOKEN)
+    telegram_sender.start()
+
+    # telegram_sender.send_message(CHAT_ID,"하이")
+    #
+    #
+    # # result_df를 엑셀로 저장
+    # save_to_excel(day_result_df, index_name + "_day_result_data")
+    # save_to_excel(week_result_df, index_name + "_week_result_data")
+    # save_to_excel(month_result_df, index_name + "_month_result_data")
 
     connection.close()
 
+    await telegram_sender.wait_until_done()
+    telegram_sender.stop()
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
