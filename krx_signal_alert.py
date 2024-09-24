@@ -1,10 +1,12 @@
+import copy
+
 import pandas as pd
 from dotenv import load_dotenv
 import os
 import asyncio
 from sqlalchemy import create_engine
 from krx_backtest.indicator_package import *
-from krx_backtest.trade_manager_class import TradeManager
+from krx_backtest.trade_manager_class import TradeManager, StockTradeInfo
 import datetime
 from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
@@ -154,6 +156,19 @@ def get_ohlc(df, column_name, type='W'):
     return weekly_ohlc
 
 
+def get_yfinance_symbol(index_name):
+    if index_name == 'KOSPI':
+        symbol = '^KS11'  # KODEX 인버스
+    elif index_name == 'KOSDAQ':
+        symbol = '^KQ11'  # KODEX 코스닥150선물인버스
+    elif index_name == 'NASDAQ':
+        symbol = '^IXIC'  # KODEX 미국나스닥100선물인버스(H)
+    else:
+        return None
+
+    return symbol
+
+
 def get_index_values(index_name, st_date):
     global connection
     index_name = index_name.strip()
@@ -164,16 +179,18 @@ def get_index_values(index_name, st_date):
     # st_date에서 30일 전 날짜 계산
     start_date = st_date - datetime.timedelta(days=180)
 
+    symbol = get_yfinance_symbol(index_name)
+
     # 데이터 가져오기 (index_name과 날짜 조건을 원하는 대로 수정)
     query = """
-    SELECT base_date, index_name, index_value
-    FROM mkt_index_info
-    WHERE index_name = %s
-    AND base_date >= %s
-    ORDER BY base_date;
+    SELECT date as base_date, symbol_name as index_name, close as index_value
+    FROM symbol_price_view
+    WHERE symbol = %s
+    AND date >= %s
+    ORDER BY date;
     """
 
-    params = (index_name, start_date)
+    params = (symbol, start_date)
     df = pd.read_sql(query, connection, params=params)
 
     # base_date를 인덱스로 설정
@@ -182,10 +199,20 @@ def get_index_values(index_name, st_date):
     return df
 
 
-def get_krx_etf_values(index_name, st_date):
-    global connection
-    index_name = index_name.strip()
-    st_date = st_date.strip()
+def get_index_inverse_etf(index_name):
+    if index_name == 'KOSPI':
+        short_code = 'A114800'  # KODEX 인버스
+    elif index_name == 'KOSDAQ':
+        short_code = 'A251340'  # KODEX 코스닥150선물인버스
+    elif index_name == 'NASDAQ':
+        short_code = 'A409810'  # KODEX 미국나스닥100선물인버스(H)
+    else:
+        return None
+
+    return short_code
+
+
+def get_index_etf(index_name):
     if index_name == 'KOSPI':
         short_code = 'A069500'
     elif index_name == 'KOSDAQ':
@@ -194,6 +221,14 @@ def get_krx_etf_values(index_name, st_date):
         short_code = 'A304940'
     else:
         return None
+
+    return short_code
+
+
+def get_krx_etf_values(short_code, st_date):
+    global connection
+    short_code = short_code.strip()
+    st_date = st_date.strip()
 
     query = """
         SELECT base_date, korean_name, close_price,short_code
@@ -213,7 +248,7 @@ def get_krx_etf_values(index_name, st_date):
 
 
 def save_to_excel(df, name="result_data"):
-    output_file_path = 'D:\\Source\\python\\krx\\result\\' + name + str(
+    output_file_path = 'D:\\Source\\python\\krx\\result\\' + name +"_"+ str(
         datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')) + ".xlsx"
 
     result_df = df
@@ -234,8 +269,8 @@ def save_to_excel(df, name="result_data"):
             workbook.add_named_style(percentage_style)
 
         # 서식을 적용할 범위 설정
-        columns_comma = ["B", "C", "D", "E", "F", "G", "I", "K"]  # 세 자리마다 콤마 서식
-        columns_percentage = ["H", "L", "M"]  # 백분율 서식
+        columns_comma = ["B", "C", "D", "E", "F", "G", "H","I", "K","M", "P"]  # 세 자리마다 콤마 서식
+        columns_percentage = ["J", "N", "O"]  # 백분율 서식
 
         # 각 셀에 대해 서식 적용
         for col in columns_comma:
@@ -289,46 +324,91 @@ def connect_db():
         return False
 
 
-def backtest(df, initial_ratio=0.5):
-    day_trader = TradeManager(initial_ratio=initial_ratio)
+def back_test(signal_df, main_stock_info, money=1000000000, sub_stock_info=None):
+    sub_mode = False
+    hold_stock_info = copy.deepcopy(main_stock_info)  # deep copy로 완전 별도로 운영
+    hold_stock_info.set_initial_ratio(100)  # 100%
+
+    # buy_and_hold 전략
+    hold_trade_manager = TradeManager(money)
+    hold_trade_manager.set_stock_info(hold_stock_info)
+
+    # 핵심전략
+    trade_manager = TradeManager(money)
+    trade_manager.set_stock_info(main_stock_info)
+
+    main_df = signal_df.merge(main_stock_info.ohlc_df, on='base_date', how='left')
+    if sub_stock_info is not None:
+        trade_manager.set_stock_info(sub_stock_info)
+        main_df = main_df.merge(sub_stock_info.ohlc_df, on='base_date', how='left', suffixes=('', '_sub'))
+        sub_mode = True
 
     columns = [
-        "일자", "가격", "잔고수량", "매입 총액", "평가 금액", "잔고평가", "수수료", "원금대비 수익률",
-        "실현손익", "액션", "홀딩 잔고평가", "홀딩수익률", "수익률 비교"
+        "일자", "가격", "잔고수량","인버스가격", "인버스 잔고수량", "매입 총액", "평가 금액", "잔고평가", "수수료", "원금대비 수익률",
+        "실현손익", "액션", "홀딩 잔고평가", "홀딩수익률", "수익률 비교", "잔액"
     ]
 
     result_df = pd.DataFrame(columns=columns)
 
-    for idx, row in df.iterrows():
+    for idx, row in main_df.iterrows():
         trade_result = None
+        sub_trade_result = None
+        sub_balance = None
+        sub_price = 0
 
         price = row['close_price']
         if price is None:
             continue
 
-        if idx == 0:
-            day_trader.init_buy_and_hold(price)  # buy and hold 전략 초기화
-        if row['last_action'] == 'ADD':
-            trade_result = day_trader.buy_stock(price)  # 매수
-        elif row['last_action'] == 'REDUCE':
-            trade_result = day_trader.sell_stock(price)  # 매도
+        if sub_mode:
+            sub_price = row['close_price_sub']
 
-        profit = day_trader.calc_profit_rate(price)  # 현재 평가
-        buy_and_hold = day_trader.calc_buy_and_hold(price)
+        if idx == 0:
+            hold_trade_manager.buy_stock(hold_stock_info.short_code, price)  # buy and hold 전략 초기화
+
+        # ADD일때 Main 매수, Sub 매도 , REDUCE일때 Main 매도, Sub 매수
+        if row['last_action'] == 'ADD':
+            trade_result = trade_manager.buy_stock(main_stock_info.short_code, price)  # 매수
+            if sub_mode :
+                sub_trade_result = trade_manager.sell_stock(sub_stock_info.short_code, sub_price)
+        elif row['last_action'] == 'REDUCE':
+            trade_result = trade_manager.sell_stock(main_stock_info.short_code, price)  # 매도
+            if sub_mode and main_stock_info.is_first is False:
+                temp_main_balance= trade_manager.get_balance(main_stock_info.short_code)
+                if temp_main_balance.shares <=0 :
+                    sub_trade_result = trade_manager.buy_stock(sub_stock_info.short_code, sub_price)
+
+        total_fee = int(trade_result['fee']) if trade_result is not None else 0 + int(sub_trade_result['fee']) if sub_trade_result is not None else 0
+
+        # 가격 업데이트
+        hold_trade_manager.calc_stock_profit_rate(main_stock_info.short_code, price)
+        trade_manager.calc_stock_profit_rate(main_stock_info.short_code, price)
+        main_balance = trade_manager.get_balance(main_stock_info.short_code)
+
+        if sub_mode:
+            hold_trade_manager.calc_stock_profit_rate(sub_stock_info.short_code, sub_price)
+            trade_manager.calc_stock_profit_rate(sub_stock_info.short_code, sub_price)
+            sub_balance = trade_manager.get_balance(sub_stock_info.short_code)
+
+        trade_account = trade_manager.calc_account_profit_rate()  # 현재 평가
+        buy_and_hold_account = hold_trade_manager.calc_account_profit_rate()
         new_row = {
             "일자": row['base_date'],
             "가격": row['close_price'],
-            "잔고수량": day_trader.total_shares,
-            "매입 총액": day_trader.total_investment,
-            "평가 금액": profit['eval_amount'],
-            "잔고평가": day_trader.remaining_cash + profit['eval_amount'],
-            "수수료": trade_result['fee'] if trade_result is not None else 0,
-            "원금대비 수익률": profit['profit_rate'],
-            "실현손익": profit['realized_profit'],
+            "인버스가격": row['close_price_sub'],
+            "잔고수량": main_balance.shares,
+            "인버스 잔고수량": sub_balance.shares if sub_balance is not None else 0,
+            "매입 총액": trade_manager.total_investment,
+            "평가 금액": trade_account['total_eval_amount'],
+            "잔고평가": trade_manager.remaining_cash + trade_account['total_eval_amount'],
+            "잔액": trade_manager.remaining_cash,
+            "수수료": total_fee,
+            "원금대비 수익률": trade_account['profit_rate'],
+            "실현손익": trade_account['total_realized_profit'],
             "액션": row['last_action'],
-            "홀딩 잔고평가": buy_and_hold['eval_amount'],
-            "홀딩수익률": buy_and_hold['profit_rate'],
-            "수익률 비교": profit['profit_rate'] - buy_and_hold['profit_rate']
+            "홀딩 잔고평가": buy_and_hold_account['total_eval_amount'],
+            "홀딩수익률": buy_and_hold_account['profit_rate'],
+            "수익률 비교": trade_account['profit_rate'] - buy_and_hold_account['profit_rate']
         }
 
         # 새로운 행을 DataFrame으로 변환
@@ -345,46 +425,62 @@ def backtest(df, initial_ratio=0.5):
 
 
 async def main():
+    global connection
     if not connect_db():
         return
 
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_colwidth', None)
+
+    test_list = ["KOSPI", "KOSDAQ"]
+
     st_date = "2023-01-01"
-    index_name = "KOSPI"
+    money = 1000000000
+    index_name = test_list[0]
     day_index_df = get_index_values(index_name, st_date)
 
     pd_st_date = pd.to_datetime(st_date).date()
     rsi_macd_df = calc_RSI_MACD(day_index_df, pd_st_date, "index_value")
-    day_etf_df = get_krx_etf_values(index_name, st_date)
+    print(rsi_macd_df)
+    etf_short_code = get_index_etf(index_name)
+    day_etf_df = get_krx_etf_values(etf_short_code, st_date)
+    inverse_etf_short_code = get_index_inverse_etf(index_name)
+    inverse_day_etf_df = get_krx_etf_values(inverse_etf_short_code, st_date)
 
-    day_merged_df = pd.merge(rsi_macd_df, day_etf_df, on='base_date',
-                             how='left')
+    stock_etf_day_info = StockTradeInfo(etf_short_code, day_etf_df)
+    stock_etf_day_inverse_info = StockTradeInfo(inverse_etf_short_code, inverse_day_etf_df,sell_ratio=100)
 
-    day_result_df = backtest(day_merged_df)
+    day_result_df = back_test(rsi_macd_df, stock_etf_day_info, money, stock_etf_day_inverse_info)
 
-    # 주봉 기준 백테스트
-    week_index_df = get_ohlc(day_index_df, 'index_value')
-    week_rsi_macd_df = calc_RSI_MACD(week_index_df, pd_st_date, "close_price")
-    week_etf_df = get_ohlc(day_etf_df, 'close_price')
-    week_merged_df = pd.merge(week_rsi_macd_df, week_etf_df, on='base_date',
-                              how='left')  # how='inner'는 기본
+    # day_merged_df = pd.merge(rsi_macd_df, day_etf_df, on='base_date',
+    #                          how='left')
 
-    week_merged_df['close_price'] = week_merged_df['close_price_y']
-    week_merged_df = week_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
-    # print(week_merged_df)
-    week_result_df = backtest(week_merged_df)
-
-    month_index_df = get_ohlc(day_index_df, 'index_value', 'M')
-    month_rsi_macd_df = calc_RSI_MACD(month_index_df, pd_st_date, "close_price")
-    month_etf_df = get_ohlc(day_etf_df, 'close_price', 'M')
-    month_merged_df = pd.merge(month_rsi_macd_df, month_etf_df, on='base_date',
-                               how='left')  # how='inner'는 기본
-
-    month_merged_df['close_price'] = month_merged_df['close_price_y']
-    month_merged_df = month_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
-    print(month_merged_df)
-    # how='inner'는 기본값, 필요에 따라 outer, left, right 변경 가능
-
-    month_result_df = backtest(month_merged_df)
+    #
+    # # 주봉 기준 백테스트
+    # week_index_df = get_ohlc(day_index_df, 'index_value')
+    # week_rsi_macd_df = calc_RSI_MACD(week_index_df, pd_st_date, "close_price")
+    # week_etf_df = get_ohlc(day_etf_df, 'close_price')
+    # week_merged_df = pd.merge(week_rsi_macd_df, week_etf_df, on='base_date',
+    #                           how='left')  # how='inner'는 기본
+    #
+    # week_merged_df['close_price'] = week_merged_df['close_price_y']
+    # week_merged_df = week_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
+    # # print(week_merged_df)
+    # week_result_df = back_test(week_merged_df)
+    #
+    # month_index_df = get_ohlc(day_index_df, 'index_value', 'M')
+    # month_rsi_macd_df = calc_RSI_MACD(month_index_df, pd_st_date, "close_price")
+    # month_etf_df = get_ohlc(day_etf_df, 'close_price', 'M')
+    # month_merged_df = pd.merge(month_rsi_macd_df, month_etf_df, on='base_date',
+    #                            how='left')  # how='inner'는 기본
+    #
+    # month_merged_df['close_price'] = month_merged_df['close_price_y']
+    # month_merged_df = month_merged_df.drop(['close_price_x', 'close_price_y'], axis=1)
+    # print(month_merged_df)
+    # # how='inner'는 기본값, 필요에 따라 outer, left, right 변경 가능
+    #
+    # month_result_df = back_test(month_merged_df)
 
     telegram_sender = TelegramSender(TOKEN)
     telegram_sender.start()
@@ -393,7 +489,7 @@ async def main():
     #
     #
     # # result_df를 엑셀로 저장
-    # save_to_excel(day_result_df, index_name + "_day_result_data")
+    save_to_excel(day_result_df, index_name + "_day_result_data")
     # save_to_excel(week_result_df, index_name + "_week_result_data")
     # save_to_excel(month_result_df, index_name + "_month_result_data")
 
