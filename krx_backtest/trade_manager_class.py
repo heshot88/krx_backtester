@@ -36,37 +36,32 @@ class StockBalance:
             remaining_sell_quantity = qty
             real_sell_amount = qty * price
 
-            sell_index = 0
             # 매도할 수량이 남은 매입 수량에서 차감
-            while remaining_sell_quantity > 0 and sell_index < len(self.purchase_qty):
-                if self.purchase_qty[sell_index] <= remaining_sell_quantity:
+            while remaining_sell_quantity > 0 and self.purchase_qty:
+                if self.purchase_qty[0] <= remaining_sell_quantity:
                     # 매도할 수량이 남은 매수 수량보다 크거나 같은 경우
-                    realized_profit = (price * self.purchase_qty[sell_index]) - self.purchase_amounts[
-                        sell_index]  # 실현손익 계산
+                    realized_profit = (price * self.purchase_qty[0]) - self.purchase_amounts[0]  # 실현손익 계산
                     total_realized_profit += realized_profit  # 총 실현손익 업데이트
-                    self.total_amount -= self.purchase_amounts[sell_index]
-                    remaining_sell_quantity -= self.purchase_qty[sell_index]
+                    self.total_amount -= self.purchase_amounts[0]
+                    remaining_sell_quantity -= self.purchase_qty[0]
                     # 매도된 항목을 deque에서 제거
                     self.purchase_amounts.popleft()
                     self.purchase_qty.popleft()
                 else:
                     # 일부만 매도할 경우
                     realized_profit = (price * remaining_sell_quantity) - (
-                            remaining_sell_quantity / self.purchase_qty[sell_index]) * self.purchase_amounts[
-                                          sell_index]  # 실현손익 계산
+                            remaining_sell_quantity / self.purchase_qty[0]) * self.purchase_amounts[0]  # 실현손익 계산
                     total_realized_profit += realized_profit  # 총 실현손익 업데이트
 
                     # 매도한 만큼의 금액 계산
-                    sell_amount = self.purchase_amounts[sell_index] * (
-                            remaining_sell_quantity / self.purchase_qty[sell_index])
+                    sell_amount = self.purchase_amounts[0] * (
+                            remaining_sell_quantity / self.purchase_qty[0])
 
-                    self.purchase_amounts[sell_index] -= sell_amount
+                    self.purchase_amounts[0] -= sell_amount
 
                     self.total_amount -= sell_amount
-                    self.purchase_qty[sell_index] -= remaining_sell_quantity
+                    self.purchase_qty[0] -= remaining_sell_quantity
                     remaining_sell_quantity = 0
-
-                sell_index += 1
 
             fee = real_sell_amount * fee_rate
             self.shares -= qty
@@ -79,7 +74,10 @@ class StockBalance:
     def update_eval(self, price):
         if self.shares > 0:
             self.eval_amount = price * self.shares
-            self.profit_rate = (self.eval_amount / self.total_amount) * 100
+            self.profit_rate = (1-(self.eval_amount / self.total_amount)) * 100
+        else :
+            self.eval_amount = 0
+            self.profit_rate = 0
         return {"short_code": self.short_code, "shares": self.shares, "eval_amount": self.eval_amount,
                 "profit_rate": self.profit_rate}
 
@@ -136,7 +134,6 @@ class TradeManager:
 
     def get_able_buy_qty(self, short_code, trade_price):
         info = self.get_stock_info(short_code)
-        buy_investment_with_fee=0
         if info is None:
             return 0
 
@@ -151,7 +148,7 @@ class TradeManager:
         amount = buy_investment_with_fee / (1 + info.buy_fee_rate)
         # 수수료를 반영한 amount 계산 후 남은 현금보다 큰지 확인
         if amount > self.remaining_cash:
-            amount = self.remaining_cash
+            amount = self.remaining_cash / (1 + info.buy_fee_rate)
 
         # 수수료가 반영된 amount를 사용하여 가능한 최대 qty 계산
         qty = int(amount / trade_price)
@@ -232,7 +229,7 @@ class TradeManager:
         total_eval_amount = 0
         count = 0
         profit_rate = 0
-        balance_list = []
+
 
         for balance in self.stock_balance_map.values():
             profit = balance.eval_snapshot()
