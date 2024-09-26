@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='krx_backtester',  # 패키지 이름
-    version='0.2',  # 패키지 버전
+    version='0.2.1',  # 패키지 버전
     packages=find_packages(),  # 포함할 패키지 자동 탐색
     install_requires=['pandas','numpy','asyncio','SQLAlchemy'],
     author='heshot88',  # 작성자 이름
