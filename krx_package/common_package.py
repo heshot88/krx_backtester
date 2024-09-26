@@ -1,5 +1,6 @@
-import pandas as pd
 import datetime
+import pandas as pd
+
 
 def get_index_values(connection, index_name, st_date):
     index_name = index_name.strip()
@@ -28,7 +29,6 @@ def get_index_values(connection, index_name, st_date):
     df['base_date'] = pd.to_datetime(df['base_date']).dt.date
 
     return df
-
 
 def get_krx_etf_values(connection, short_code, st_date):
 
