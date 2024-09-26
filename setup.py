@@ -1,8 +1,8 @@
 # setup.py
 from setuptools import setup, find_packages
 
-with open("requirements.txt", encoding='utf-8') as f:
-    required_packages = f.read().splitlines()
+with open("requirements.txt", "rb") as f:
+    required_packages = f.read().decode('utf-8').splitlines()
 
 setup(
     name='krx_backtester',  # 패키지 이름
