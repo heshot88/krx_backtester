@@ -9,10 +9,8 @@ from openpyxl.styles import NamedStyle
 from dotenv import load_dotenv
 from krx_strategy.sangwoo_index_strategy_01 import start as sangwoo_01_start
 from krx_strategy.sangwoo_index_strategy_01 import get_index_inverse_etf, get_index_etf
-from krx_tester.krx_telegram import TelegramSender
 
-TOKEN = '6588514172:AAH5hED9lPuPcMB7VJ8pHvWFWSWQya5aj80'
-CHAT_ID = '-1002209543022'
+
 
 
 def save_to_excel(df, name="result_data"):
@@ -127,8 +125,6 @@ async def main():
     # pd.set_option('display.max_columns', None)
     # pd.set_option('display.max_colwidth', None)
 
-    telegram_sender = TelegramSender(TOKEN)
-    telegram_sender.start()
 
     test_list = ["NASDAQ", "KOSPI", "KOSDAQ"]
     st_date = "2023-01-01"  # 시작일자
@@ -137,10 +133,8 @@ async def main():
 
     for index_name in test_list:
         result_df = sangwoo_01(conn,index_name,st_date,money,ohlc_type)
-        #save_to_excel(result_df, index_name + "_" + ohlc_type + "_result_data")
+        save_to_excel(result_df, index_name + "_" + ohlc_type + "_result_data")
 
-    await telegram_sender.wait_until_done()
-    telegram_sender.stop()
     conn.close()
 
 

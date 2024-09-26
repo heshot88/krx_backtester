@@ -146,6 +146,15 @@ def calc_RSI_MACD(df, st_date, column_name):
 
     return filtered_df
 
+def convert_to_int_if_possible(x):
+    # x가 숫자일 경우만 처리
+    if isinstance(x, (float, int)):
+        # 정수이거나 소수점 이하 자리가 없는 float인 경우 int로 변환
+        if float(x).is_integer():
+            return int(x)
+    # 그 외의 경우는 원래 값을 반환
+    return x
+
 
 def back_test(signal_df, main_stock_info, money=1000000000, sub_stock_info=None):
     sub_mode = False
@@ -238,9 +247,11 @@ def back_test(signal_df, main_stock_info, money=1000000000, sub_stock_info=None)
 
         # 새로운 행을 DataFrame으로 변환
         new_row_df = pd.DataFrame([new_row])
-
-        # 모든 값이 NaN인 열 제거
+ # 모든 값이 NaN인 열 제거
         new_row_df = new_row_df.dropna(how='all', axis=1)
+        new_row_df = new_row_df.apply(lambda col: col.map(convert_to_int_if_possible))
+
+        # 결과 확인
 
         # 새로운 행이 비어 있지 않을 때만 추가
         if not new_row_df.empty:
