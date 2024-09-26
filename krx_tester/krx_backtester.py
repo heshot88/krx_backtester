@@ -1,4 +1,3 @@
-
 import os
 import asyncio
 from sqlalchemy import create_engine
@@ -9,9 +8,6 @@ from openpyxl.styles import NamedStyle
 from dotenv import load_dotenv
 from krx_strategy.sangwoo_index_strategy_01 import start as sangwoo_01_start
 from krx_strategy.sangwoo_index_strategy_01 import get_index_inverse_etf, get_index_etf
-
-
-
 
 def save_to_excel(df, name="result_data"):
     output_file_path = 'D:\\Source\\python\\krx\\result\\' + name + "_" + str(
@@ -89,7 +85,8 @@ def connect_db(db_host=None,db_port=None,db_user=None,db_password=None,db_name=N
         return False
 
 
-def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_ratio=20,sell_ratio=20,buy_fee_rate=0.015,sell_fee_rate=0.2,is_first=False):
+def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_ratio=20,sell_ratio=20,buy_fee_rate=0.015
+               ,sell_fee_rate=0.2,is_first=True):
     etf_short_code = get_index_etf(index_name)
     inverse_etf_short_code = get_index_inverse_etf(index_name)
     main_etf_info = StockTradeInfo(etf_short_code,

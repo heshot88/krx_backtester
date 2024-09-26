@@ -49,7 +49,8 @@ class StockBalance:
                     self.purchase_qty.popleft()
                 else:
                     # 일부만 매도할 경우
-                    realized_profit = (price * remaining_sell_quantity) - round((remaining_sell_quantity / self.purchase_qty[0]) * self.purchase_amounts[0])  # 실현손익 계산
+                    realized_profit = (price * remaining_sell_quantity) - round(
+                        (remaining_sell_quantity / self.purchase_qty[0]) * self.purchase_amounts[0])  # 실현손익 계산
                     total_realized_profit += realized_profit  # 총 실현손익 업데이트
 
                     # 매도한 만큼의 계산 매매시에는 사사오입
@@ -61,7 +62,7 @@ class StockBalance:
                     self.purchase_qty[0] -= remaining_sell_quantity
                     remaining_sell_quantity = 0
 
-            fee = real_sell_amount * fee_rate
+            fee = round(real_sell_amount * fee_rate)
             self.shares -= qty
             self.realized_profit += total_realized_profit
 
@@ -73,12 +74,12 @@ class StockBalance:
     def update_eval(self, price):
         if self.shares > 0:
             self.eval_amount = price * self.shares
-            self.profit_rate = (1 - (self.eval_amount / self.total_amount)) * 100
+            self.profit_rate = round((1 - (self.eval_amount / self.total_amount)) * 100, 2)
         else:
             self.eval_amount = 0
             self.profit_rate = 0
-        return {"short_code": self.short_code, "shares": self.shares, "eval_amount": self.eval_amount,
-                "profit_rate": self.profit_rate}
+        return {"short_code": self.short_code, "shares": self.shares,
+                "eval_amount": self.eval_amount, "profit_rate": self.profit_rate}
 
     def eval_snapshot(self):
         return {"short_code": self.short_code, "shares": self.shares, "eval_amount": self.eval_amount,
@@ -90,7 +91,7 @@ class StockTradeInfo:
     def __init__(self, short_code, ohlc_df=None, initial_ratio=20, buy_ratio=20, sell_ratio=20,
                  buy_fee_rate=0.015, sell_fee_rate=0.2, is_first=True):
         self.short_code = short_code
-        self.initial_ratio = initial_ratio / 100
+        self.initial_ratio = initial_ratio
         self.buy_ratio = buy_ratio / 100
         self.sell_ratio = sell_ratio / 100
         self.is_first = is_first
@@ -143,15 +144,15 @@ class TradeManager:
         # 최초 매수 여부에 따른 수수료 반영 후 최대 amount 계산
         if info.is_first:
             # 초기 비율을 사용하여 amount 계산
-            buy_investment_with_fee = self.initial_investment * info.initial_ratio
+            buy_ratio_amount = self.initial_investment * info.initial_ratio
         else:
             # 매수 비율을 사용하여 amount 계산
-            buy_investment_with_fee = self.initial_investment * info.buy_ratio
+            buy_ratio_amount = self.initial_investment * info.buy_ratio
 
-        amount = buy_investment_with_fee / (1 + info.buy_fee_rate)
+        amount = int(buy_ratio_amount / (1 + info.buy_fee_rate))
         # 수수료를 반영한 amount 계산 후 남은 현금보다 큰지 확인
         if amount > self.remaining_cash:
-            amount = self.remaining_cash / (1 + info.buy_fee_rate)
+            amount = int(self.remaining_cash / (1 + info.buy_fee_rate))
 
         # 수수료가 반영된 amount를 사용하여 가능한 최대 qty 계산
         qty = int(amount / trade_price)
@@ -243,9 +244,8 @@ class TradeManager:
         if count > 0:
             self.total_realized_profit = total_realized_profit
             self.total_investment = total_investment
-            profit_rate = ((
-                                   total_eval_amount + self.remaining_cash + total_realized_profit) / self.initial_investment) - 1 \
-                if self.initial_investment != 0 else 0
+            profit_rate =((total_eval_amount + self.remaining_cash + total_realized_profit) /
+                                  self.initial_investment) - 1 if self.initial_investment != 0 else 0
 
         return {
 
