@@ -1,8 +1,9 @@
 # setup.py
 from setuptools import setup, find_packages
 
-with open("requirements.txt") as f:
+with open("requirements.txt", encoding='utf-8') as f:
     required_packages = f.read().splitlines()
+
 setup(
     name='krx_backtester',  # 패키지 이름
     version='0.1',  # 패키지 버전
