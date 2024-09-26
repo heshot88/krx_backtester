@@ -1,6 +1,6 @@
 import asyncio
 
-from krx_backtester.krx_telegram import TelegramSender
+from krx_tester.krx_telegram import TelegramSender
 
 TOKEN = '6588514172:AAH5hED9lPuPcMB7VJ8pHvWFWSWQya5aj80'
 CHAT_ID = '-1002209543022'
