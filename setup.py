@@ -2,10 +2,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='krx_tester',  # 패키지 이름
+    name='krx_backtester',  # 패키지 이름
     version='0.2.3',  # 패키지 버전
     packages=find_packages(),  # 포함할 패키지 자동 탐색
-    install_requires=['pandas','numpy','asyncio','SQLAlchemy','openpyxl','asyncio'],
+    install_requires=['pandas','numpy','asyncio','SQLAlchemy','openpyxl','asyncio','python-telegram-bot'],
     author='heshot88',  # 작성자 이름
     author_email='heshot88@gmail.com',  # 작성자 이메일
     description='A backtesting package for KRX data.',  # 패키지 설명
