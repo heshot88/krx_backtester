@@ -1,5 +1,5 @@
 import copy
-import pandas as pd
+
 
 from krx_package.common_package import get_index_values, get_krx_etf_values, get_ohlc
 from krx_package.indicator_package import *

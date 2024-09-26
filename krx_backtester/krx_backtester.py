@@ -9,7 +9,7 @@ from openpyxl.styles import NamedStyle
 from dotenv import load_dotenv
 from krx_strategy.sangwoo_index_strategy_01 import start as sangwoo_01_start
 from krx_strategy.sangwoo_index_strategy_01 import get_index_inverse_etf, get_index_etf
-from krx_telegram import TelegramSender
+from krx_backtester.krx_telegram import TelegramSender
 
 TOKEN = '6588514172:AAH5hED9lPuPcMB7VJ8pHvWFWSWQya5aj80'
 CHAT_ID = '-1002209543022'
