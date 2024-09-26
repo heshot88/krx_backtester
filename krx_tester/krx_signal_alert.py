@@ -10,6 +10,8 @@ async def main():
     telegram_sender = TelegramSender(TOKEN)
     telegram_sender.start()
 
+    telegram_sender.send_message(CHAT_ID,"TEST")
+
     await telegram_sender.wait_until_done()
     telegram_sender.stop()
 
