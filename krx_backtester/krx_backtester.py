@@ -1,16 +1,12 @@
-from dotenv import load_dotenv
+
 import os
 import asyncio
 from sqlalchemy import create_engine
-from krx_backtest.indicator_package import *
-from krx_backtest.trade_manager_class import TradeManager, StockTradeInfo
-from krx_backtest.common_package import *
+from krx_package.trade_manager_class import TradeManager, StockTradeInfo
+from krx_package.common_package import *
 import datetime
-from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.utils import get_column_letter
-
+from dotenv import load_dotenv
 from krx_strategy.sangwoo_index_strategy_01 import start as sangwoo_01_start
 from krx_strategy.sangwoo_index_strategy_01 import get_index_inverse_etf, get_index_etf
 from krx_telegram import TelegramSender
@@ -71,7 +67,7 @@ def save_to_excel(df, name="result_data"):
     print(f"Data with formatting has been successfully saved to {output_file_path}")
 
 
-def connect_db(db_host,db_port,db_user,db_password,db_name):
+def connect_db(db_host=None,db_port=None,db_user=None,db_password=None,db_name=None):
 
     if db_host is None or len(db_host) <=5 :
         load_dotenv()
@@ -95,40 +91,31 @@ def connect_db(db_host,db_port,db_user,db_password,db_name):
         return False
 
 
-def sangwoo_01(conn,initial_ratio=20,buy_ratio=20,sell_ratio=20,buy_fee_rate=0.015,sell_fee_rate=0.2,is_first=False):
-    test_list = ["NASDAQ", "KOSPI", "KOSDAQ"]
-    st_date = "2023-01-01"  # 시작일자
-    money = 1000000000  # 초기자금
-    ohlc_type = 'D'  # 일봉
+def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_ratio=20,sell_ratio=20,buy_fee_rate=0.015,sell_fee_rate=0.2,is_first=False):
+    etf_short_code = get_index_etf(index_name)
+    inverse_etf_short_code = get_index_inverse_etf(index_name)
+    main_etf_info = StockTradeInfo(etf_short_code,
+                                   initial_ratio=initial_ratio,
+                                   buy_ratio=buy_ratio,
+                                   sell_ratio=sell_ratio,
+                                   buy_fee_rate=buy_fee_rate,
+                                   sell_fee_rate=sell_fee_rate,
+                                   is_first=is_first
+                                   )
+    inverse_etf_info = StockTradeInfo(inverse_etf_short_code,
+                                      initial_ratio=initial_ratio,
+                                      buy_ratio=buy_ratio,
+                                      sell_ratio=sell_ratio,
+                                      buy_fee_rate=buy_fee_rate,
+                                      sell_fee_rate=sell_fee_rate,
+                                      is_first=is_first
+                                      )
 
-    for index_name in test_list:
-        etf_short_code = get_index_etf(index_name)
-        inverse_etf_short_code = get_index_inverse_etf(index_name)
-        main_etf_info = StockTradeInfo(etf_short_code,
-                                       initial_ratio=initial_ratio,
-                                       buy_ratio=buy_ratio,
-                                       sell_ratio=sell_ratio,
-                                       buy_fee_rate=buy_fee_rate,
-                                       sell_fee_rate=sell_fee_rate,
-                                       is_first=is_first
-                                       )
-        inverse_etf_info = StockTradeInfo(inverse_etf_short_code,
-                                          initial_ratio=initial_ratio,
-                                          buy_ratio=buy_ratio,
-                                          sell_ratio=sell_ratio,
-                                          buy_fee_rate=buy_fee_rate,
-                                          sell_fee_rate=sell_fee_rate,
-                                          is_first=is_first
-                                          )
+    result_df = sangwoo_01_start(conn, index_name, st_date, money, main_etf_info, inverse_etf_info, ohlc_type)
 
-        result_df = sangwoo_01_start(conn, index_name, st_date, money, main_etf_info, inverse_etf_info, ohlc_type)
+    return result_df
 
-        # month_result_df = back_test(month_merged_df)
 
-        # telegram_sender.send_message(CHAT_ID,"하이")
-
-        # # result_df를 엑셀로 저장
-        save_to_excel(result_df, index_name + "_" + ohlc_type + "_result_data")
 
 
 async def main():
@@ -143,8 +130,14 @@ async def main():
     telegram_sender = TelegramSender(TOKEN)
     telegram_sender.start()
 
-    #상우 전략 01 back_test 시작
-    sangwoo_01(conn)
+    test_list = ["NASDAQ", "KOSPI", "KOSDAQ"]
+    st_date = "2023-01-01"  # 시작일자
+    money = 1000000000  # 초기자금
+    ohlc_type = 'D'  # 일봉
+
+    for index_name in test_list:
+        result_df = sangwoo_01(conn,index_name,st_date,money,ohlc_type)
+        #save_to_excel(result_df, index_name + "_" + ohlc_type + "_result_data")
 
     await telegram_sender.wait_until_done()
     telegram_sender.stop()

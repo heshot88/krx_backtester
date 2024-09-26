@@ -1,9 +1,9 @@
 import copy
 import pandas as pd
 
-from krx_backtest.common_package import get_index_values, get_krx_etf_values, get_ohlc
-from krx_backtest.indicator_package import *
-from krx_backtest.trade_manager_class import TradeManager, StockTradeInfo
+from krx_package.common_package import get_index_values, get_krx_etf_values, get_ohlc
+from krx_package.indicator_package import *
+from krx_package.trade_manager_class import TradeManager, StockTradeInfo
 
 
 def get_index_inverse_etf(index_name):
