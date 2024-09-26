@@ -71,14 +71,15 @@ def save_to_excel(df, name="result_data"):
     print(f"Data with formatting has been successfully saved to {output_file_path}")
 
 
-def connect_db():
-    load_dotenv()
+def connect_db(db_host,db_port,db_user,db_password,db_name):
 
-    db_host = os.getenv('POSTGRESQL_HOST')
-    db_port = os.getenv('POSTGRESQL_PORT')
-    db_user = os.getenv('POSTGRESQL_USER')
-    db_password = os.getenv('POSTGRESQL_PASSWORD')
-    db_name = os.getenv('POSTGRESQL_DB')
+    if db_host is None or len(db_host) <=5 :
+        load_dotenv()
+        db_host = os.getenv('POSTGRESQL_HOST')
+        db_port = os.getenv('POSTGRESQL_PORT')
+        db_user = os.getenv('POSTGRESQL_USER')
+        db_password = os.getenv('POSTGRESQL_PASSWORD')
+        db_name = os.getenv('POSTGRESQL_DB')
 
     # PostgreSQL 연결 문자열 생성
     db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
@@ -94,7 +95,7 @@ def connect_db():
         return False
 
 
-def sangwoo_01(conn):
+def sangwoo_01(conn,initial_ratio=20,buy_ratio=20,sell_ratio=20,buy_fee_rate=0.015,sell_fee_rate=0.2,is_first=False):
     test_list = ["NASDAQ", "KOSPI", "KOSDAQ"]
     st_date = "2023-01-01"  # 시작일자
     money = 1000000000  # 초기자금
@@ -104,20 +105,20 @@ def sangwoo_01(conn):
         etf_short_code = get_index_etf(index_name)
         inverse_etf_short_code = get_index_inverse_etf(index_name)
         main_etf_info = StockTradeInfo(etf_short_code,
-                                       initial_ratio=20,
-                                       buy_ratio=20,
-                                       sell_ratio=20,
-                                       buy_fee_rate=0.015,
-                                       sell_fee_rate=0.2,
-                                       is_first=True
+                                       initial_ratio=initial_ratio,
+                                       buy_ratio=buy_ratio,
+                                       sell_ratio=sell_ratio,
+                                       buy_fee_rate=buy_fee_rate,
+                                       sell_fee_rate=sell_fee_rate,
+                                       is_first=is_first
                                        )
         inverse_etf_info = StockTradeInfo(inverse_etf_short_code,
-                                          initial_ratio=20,
-                                          buy_ratio=20,
-                                          sell_ratio=50,
-                                          buy_fee_rate=0.015,
-                                          sell_fee_rate=0.2,
-                                          is_first=True
+                                          initial_ratio=initial_ratio,
+                                          buy_ratio=buy_ratio,
+                                          sell_ratio=sell_ratio,
+                                          buy_fee_rate=buy_fee_rate,
+                                          sell_fee_rate=sell_fee_rate,
+                                          is_first=is_first
                                           )
 
         result_df = sangwoo_01_start(conn, index_name, st_date, money, main_etf_info, inverse_etf_info, ohlc_type)
