@@ -49,13 +49,11 @@ class StockBalance:
                     self.purchase_qty.popleft()
                 else:
                     # 일부만 매도할 경우
-                    realized_profit = (price * remaining_sell_quantity) - (
-                            remaining_sell_quantity / self.purchase_qty[0]) * self.purchase_amounts[0]  # 실현손익 계산
+                    realized_profit = (price * remaining_sell_quantity) - round((remaining_sell_quantity / self.purchase_qty[0]) * self.purchase_amounts[0])  # 실현손익 계산
                     total_realized_profit += realized_profit  # 총 실현손익 업데이트
 
-                    # 매도한 만큼의 금액 계산
-                    sell_amount = self.purchase_amounts[0] * (
-                            remaining_sell_quantity / self.purchase_qty[0])
+                    # 매도한 만큼의 계산 매매시에는 사사오입
+                    sell_amount = round(self.purchase_amounts[0] * (remaining_sell_quantity / self.purchase_qty[0]))
 
                     self.purchase_amounts[0] -= sell_amount
 
