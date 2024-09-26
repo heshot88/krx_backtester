@@ -21,7 +21,7 @@ class StockBalance:
         self.total_amount += (amount + fee)
 
         # 매수 금액과 수량 기록
-        self.purchase_amounts.append(amount+fee)
+        self.purchase_amounts.append(amount + fee)
         self.purchase_qty.append(qty)
         self.update_eval(price)
 
@@ -69,13 +69,14 @@ class StockBalance:
 
             self.update_eval(price)
 
-        return {"amount": real_sell_amount, "realized_profit": total_realized_profit, "fee": fee, "remaining_shares": self.shares}
+        return {"amount": real_sell_amount, "realized_profit": total_realized_profit, "fee": fee,
+                "remaining_shares": self.shares}
 
     def update_eval(self, price):
         if self.shares > 0:
             self.eval_amount = price * self.shares
-            self.profit_rate = (1-(self.eval_amount / self.total_amount)) * 100
-        else :
+            self.profit_rate = (1 - (self.eval_amount / self.total_amount)) * 100
+        else:
             self.eval_amount = 0
             self.profit_rate = 0
         return {"short_code": self.short_code, "shares": self.shares, "eval_amount": self.eval_amount,
@@ -88,7 +89,7 @@ class StockBalance:
 
 
 class StockTradeInfo:
-    def __init__(self, short_code, ohlc_df, initial_ratio=20, buy_ratio=20, sell_ratio=20,
+    def __init__(self, short_code, ohlc_df=None, initial_ratio=20, buy_ratio=20, sell_ratio=20,
                  buy_fee_rate=0.015, sell_fee_rate=0.2, is_first=True):
         self.short_code = short_code
         self.initial_ratio = initial_ratio / 100
@@ -99,11 +100,15 @@ class StockTradeInfo:
         self.sell_fee_rate = sell_fee_rate / 100
         self.ohlc_df = ohlc_df
 
-    def set_initial_ratio(self, ratio):
+    @property
+    def initial_ratio(self):
+        return self._initial_ratio
+
+    @initial_ratio.setter
+    def initial_ratio(self, ratio):
         if ratio > 100:
             ratio = 100
-
-        self.initial_ratio = ratio / 100
+        self._initial_ratio = ratio / 100
 
 
 class TradeManager:
@@ -156,12 +161,12 @@ class TradeManager:
         return qty
 
     def get_able_sell_qty(self, short_code, trade_price):
-        balance = self.get_balance(short_code,trade_price)
+        balance = self.get_balance(short_code, trade_price)
         info = self.get_stock_info(short_code)
         amount = int(self.initial_investment * info.sell_ratio)
 
         qty = int(amount / trade_price)
-        if qty > balance.shares: # 남은 잔고보다 더 팔아야하면 잔고만큼
+        if qty > balance.shares:  # 남은 잔고보다 더 팔아야하면 잔고만큼
             qty = balance.shares
 
         return qty
@@ -192,7 +197,7 @@ class TradeManager:
             'remaining_cash': self.remaining_cash,
             'total_investment': self.total_investment,
             'total_realized_profit': self.total_realized_profit,
-            'qty':trade_qty,
+            'qty': trade_qty,
             'fee': buy_result.get('fee')
         }
 
@@ -230,7 +235,6 @@ class TradeManager:
         count = 0
         profit_rate = 0
 
-
         for balance in self.stock_balance_map.values():
             profit = balance.eval_snapshot()
             total_realized_profit += profit['realized_profit']
@@ -238,12 +242,11 @@ class TradeManager:
             total_eval_amount += profit['eval_amount']
             count = count + 1
 
-
         if count > 0:
             self.total_realized_profit = total_realized_profit
             self.total_investment = total_investment
             profit_rate = ((
-                                       total_eval_amount + self.remaining_cash + total_realized_profit) / self.initial_investment) - 1 \
+                                   total_eval_amount + self.remaining_cash + total_realized_profit) / self.initial_investment) - 1 \
                 if self.initial_investment != 0 else 0
 
         return {
@@ -266,7 +269,7 @@ class TradeManager:
         # 평가 금액과 수익률 반환
         return {
             'short_code': profit['short_code'],
-            'shares' : profit['shares'],
+            'shares': profit['shares'],
             'eval_amount': profit['eval_amount'],
             'profit_rate': profit['profit_rate']
         }
