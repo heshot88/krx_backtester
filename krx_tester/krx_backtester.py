@@ -98,12 +98,12 @@ def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_rati
                                    is_first=is_first
                                    )
     inverse_etf_info = StockTradeInfo(inverse_etf_short_code,
-                                      initial_ratio=initial_ratio,
+                                      initial_ratio=buy_ratio,
                                       buy_ratio=buy_ratio,
                                       sell_ratio=sell_ratio,
                                       buy_fee_rate=buy_fee_rate,
                                       sell_fee_rate=sell_fee_rate,
-                                      is_first=is_first
+                                      is_first=False
                                       )
 
     result_df = sangwoo_01_start(conn, index_name, st_date, money, main_etf_info, inverse_etf_info, ohlc_type)
