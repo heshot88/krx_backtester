@@ -54,11 +54,21 @@ def get_krx_etf_values(connection, short_code, st_date):
 
 def get_yfinance_symbol(index_name):
     if index_name == 'KOSPI':
-        symbol = '^KS11'  # KODEX 인버스
+        symbol = '^KS11'
     elif index_name == 'KOSDAQ':
-        symbol = '^KQ11'  # KODEX 코스닥150선물인버스
+        symbol = '^KQ11'
     elif index_name == 'NASDAQ':
-        symbol = '^IXIC'  # KODEX 미국나스닥100선물인버스(H)
+        symbol = '^IXIC'
+    elif index_name == 'DOW JONES':
+        symbol = '^DJI'
+    elif index_name == 'EURO':
+        symbol = '^STOXX50E'
+    elif index_name == 'HANGSENG':
+        symbol = '^HSI'
+    elif index_name == 'SHANGHAI':
+        symbol = '000001.SS'
+    elif index_name == 'NIKKEI':
+        symbol = '^N225'
     else:
         return None
 

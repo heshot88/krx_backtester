@@ -78,7 +78,7 @@ def connect_db(db_host=None,db_port=None,db_user=None,db_password=None,db_name=N
     try:
         engine = create_engine(db_url)
         connection = engine.connect()  # SQLAlchemy 연결
-        print("DB 연결 성공")
+        # print("DB 연결 성공")
         return connection
     except Exception as e:
         print("DB 연결 실패", e)
