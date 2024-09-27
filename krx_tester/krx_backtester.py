@@ -85,7 +85,7 @@ def connect_db(db_host=None,db_port=None,db_user=None,db_password=None,db_name=N
         return False
 
 
-def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_ratio=20,sell_ratio=20,buy_fee_rate=0.015
+def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_ratio=20,sell_ratio=20,sub_buy_ratio=20,sub_sell_ratio=20,buy_fee_rate=0.015
                ,sell_fee_rate=0.2,is_first=True):
     etf_short_code = get_index_etf(index_name)
     inverse_etf_short_code = get_index_inverse_etf(index_name)
@@ -98,9 +98,9 @@ def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_rati
                                    is_first=is_first
                                    )
     inverse_etf_info = StockTradeInfo(inverse_etf_short_code,
-                                      initial_ratio=buy_ratio,
-                                      buy_ratio=buy_ratio,
-                                      sell_ratio=sell_ratio,
+                                      initial_ratio=sub_buy_ratio,
+                                      buy_ratio=sub_buy_ratio,
+                                      sell_ratio=sub_sell_ratio,
                                       buy_fee_rate=buy_fee_rate,
                                       sell_fee_rate=sell_fee_rate,
                                       is_first=False
