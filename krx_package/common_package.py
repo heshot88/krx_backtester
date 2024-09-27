@@ -9,7 +9,7 @@ def get_index_values(connection, index_name, st_date):
     st_date = pd.to_datetime(st_date)
 
     # st_date에서 30일 전 날짜 계산
-    start_date = st_date - datetime.timedelta(days=180)
+    start_date = st_date - datetime.timedelta(days=1460)
 
     symbol = get_yfinance_symbol(index_name)
 
