@@ -2,27 +2,38 @@ import datetime
 import pandas as pd
 
 
-def get_index_values(connection, index_name, st_date):
+def get_index_values(connection, index_name, st_date=None):
     index_name = index_name.strip()
-    st_date = st_date.strip()
-    # st_date를 datetime 객체로 변환
-    st_date = pd.to_datetime(st_date)
+    if st_date is not None :
+        st_date = st_date.strip()
+        # st_date를 datetime 객체로 변환
+        st_date = pd.to_datetime(st_date)
 
-    # st_date에서 30일 전 날짜 계산
-    # start_date = st_date - datetime.timedelta(days=1460)
+        # st_date에서 30일 전 날짜 계산
+        start_date = st_date - datetime.timedelta(days=1460)
 
     symbol = get_yfinance_symbol(index_name)
 
     # 데이터 가져오기 (index_name과 날짜 조건을 원하는 대로 수정)
     query = """
-    SELECT date as base_date, symbol_name as index_name, close
+    SELECT date as base_date, symbol_name as index_name, open,high,low close
     FROM symbol_price_view
-    WHERE symbol = %s
-   
-    ORDER BY date;
+    WHERE symbol = %s   
+    """
+    if st_date is not None :
+        query += """
+        And date >=%s
+        """
+
+    query +="""
+    ORDER BY date ASC;
     """
 
-    params = (symbol)
+    if st_date is not None :
+        params = (symbol,start_date)
+    else :
+        params = (symbol)
+
     df = pd.read_sql(query, connection, params=params)
 
     # base_date를 인덱스로 설정

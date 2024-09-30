@@ -261,7 +261,7 @@ def back_test(signal_df, main_stock_info, money=1000000000, sub_stock_info=None)
 
 
 def start(conn, index_name, st_date, money, main_etf_info, inverse_etf_info, ohlc_type='D'):
-    day_index_df = get_index_values(conn, index_name, st_date)
+    day_index_df = get_index_values(conn, index_name)
     pd_st_date = pd.to_datetime(st_date).date()
 
     main_etf_df = get_krx_etf_values(conn, main_etf_info.short_code, st_date)
