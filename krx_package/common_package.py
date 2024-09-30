@@ -16,7 +16,7 @@ def get_index_values(connection, index_name, st_date=None):
 
     # 데이터 가져오기 (index_name과 날짜 조건을 원하는 대로 수정)
     query = """
-    SELECT date as base_date, symbol_name as index_name, open,high,low close
+    SELECT date as base_date, symbol_name as index_name, open,high,low, close
     FROM symbol_price_view
     WHERE symbol = %s   
     """
@@ -32,7 +32,7 @@ def get_index_values(connection, index_name, st_date=None):
     if st_date is not None :
         params = (symbol,start_date)
     else :
-        params = (symbol)
+        params = (symbol,)
 
     df = pd.read_sql(query, connection, params=params)
 
