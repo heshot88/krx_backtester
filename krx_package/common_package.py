@@ -9,7 +9,7 @@ def get_index_values(connection, index_name, st_date):
     st_date = pd.to_datetime(st_date)
 
     # st_date에서 30일 전 날짜 계산
-    start_date = st_date - datetime.timedelta(days=1460)
+    # start_date = st_date - datetime.timedelta(days=1460)
 
     symbol = get_yfinance_symbol(index_name)
 
@@ -18,11 +18,11 @@ def get_index_values(connection, index_name, st_date):
     SELECT date as base_date, symbol_name as index_name, close
     FROM symbol_price_view
     WHERE symbol = %s
-    AND date >= %s
+   
     ORDER BY date;
     """
 
-    params = (symbol, start_date)
+    params = (symbol)
     df = pd.read_sql(query, connection, params=params)
 
     # base_date를 인덱스로 설정
