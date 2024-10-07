@@ -115,7 +115,7 @@ def calc_last_action(row, df):
         return None
 
 
-def calc_RSI_MACD(df, st_date, column_name):
+def calc_RSI_MACD(df, st_date, column_name,ma_period_list=None):
     # 매개변수 설정
     rsi_period = 14
     short_period = 12
@@ -126,6 +126,13 @@ def calc_RSI_MACD(df, st_date, column_name):
     # RSI + MACD 계산
     df['RSI_MACD'], df['RSI_MACD_Signal'] = RSI_MACD(df[column_name], rsi_period, short_period, long_period,
                                                      signal_period, ma_type)
+
+    if ma_period_list is None :
+        ma_period_list = [5,10,20,150,200]
+
+
+    for period in ma_period_list :
+        df[f"{period}MA"] = EMA(df[column_name],period)
 
     # df에 signal_simple 함수 적용하여 ACTION 컬럼 추가
     df['ACTION'] = df.apply(signal_simple, axis=1)
