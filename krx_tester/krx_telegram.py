@@ -15,6 +15,7 @@ class TelegramSender:
         try:
             with open(photo_path, 'rb') as photo:
                 await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=caption)
+                await asyncio.sleep(0.05)
                 # print(f"Photo sent successfully to {chat_id}")
         except TelegramError as e:
             print(f"Error sending photo: {e}")
@@ -25,6 +26,9 @@ class TelegramSender:
         """Telegram 메시지 발송"""
         try:
             await self.bot.send_message(chat_id=chat_id, text=message)
+            # 0.05초 대기
+            await asyncio.sleep(0.05)
+
             # print(f"Message sent successfully to {chat_id}")
         except TelegramError as e:
             print(f"Error sending message: {e}")

@@ -4,6 +4,7 @@ import copy
 from krx_package.common_package import get_index_values, get_krx_etf_values, get_ohlc
 from krx_package.indicator_package import *
 from krx_package.trade_manager_class import TradeManager, StockTradeInfo
+import pandas as pd
 
 
 def get_index_inverse_etf(index_name):
@@ -114,7 +115,6 @@ def calc_last_action(row, df):
         # 이전 행의 signal 값이 None이거나, 현재 signal 값과 다르면 None 반환
         return None
 
-
 def calc_RSI_MACD(df, st_date, column_name,ma_period_list=None):
     # 매개변수 설정
     rsi_period = 14
@@ -133,6 +133,9 @@ def calc_RSI_MACD(df, st_date, column_name,ma_period_list=None):
 
     for period in ma_period_list :
         df[f"{period}MA"] = EMA(df[column_name],period)
+
+    df['RSI_MACD_Diff'] = df['RSI_MACD'] - df['RSI_MACD_Signal']
+
 
     # df에 signal_simple 함수 적용하여 ACTION 컬럼 추가
     df['ACTION'] = df.apply(signal_simple, axis=1)

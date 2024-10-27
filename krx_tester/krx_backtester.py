@@ -114,7 +114,7 @@ def sangwoo_01(conn,index_name,st_date,money,ohlc_type,initial_ratio=20,buy_rati
 
 
 async def main():
-    conn = connect_db()
+    conn = connect_db("office.void-trading.com", "9875", "trading", "athos01281!", "tsdb")
     if not conn:
         print("DB 연결 실패 -- 프로그램 종료 --")
         return
@@ -130,7 +130,8 @@ async def main():
 
     for index_name in test_list:
         result_df = sangwoo_01(conn,index_name,st_date,money,ohlc_type)
-        save_to_excel(result_df, index_name + "_" + ohlc_type + "_result_data")
+        print(result_df)
+        # save_to_excel(result_df, index_name + "_" + ohlc_type + "_result_data")
 
     conn.close()
 
