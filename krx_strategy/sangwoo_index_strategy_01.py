@@ -136,6 +136,7 @@ def calc_RSI_MACD(df, st_date, column_name,ma_period_list=None):
 
     df['RSI_MACD_Diff'] = df['RSI_MACD'] - df['RSI_MACD_Signal']
     df['RSI_MACD_Diff_Change'] = df['RSI_MACD_Diff'] - df['RSI_MACD_Diff'].shift(1)
+    df['signal_bit'] = 1 if df['RSI_MACD_Diff_Change'] <= 0 else -1
 
 
 
