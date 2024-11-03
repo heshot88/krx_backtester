@@ -15,9 +15,9 @@ class TelegramSender:
         try:
             with open(photo_path, 'rb') as photo:
                 await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=caption)
-
         except TelegramError as e:
             print(f"Error sending photo: {e}")
+            raise e
         except FileNotFoundError:
             print(f"Error: File {photo_path} not found.")
 
@@ -30,6 +30,7 @@ class TelegramSender:
             # print(f"Message sent successfully to {chat_id}")
         except TelegramError as e:
             print(f"Error sending message: {e}")
+            raise e
 
     async def retry_on_flood_control(self, func, *args, retry_delay=1, max_retries=3):
         """Flood control 예외 시 지연 후 재시도하는 함수"""
