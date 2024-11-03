@@ -39,7 +39,7 @@ class TelegramSender:
             try:
                 return await func(*args)
             except Exception as e:
-                if "Flood control exceeded" in str(e):
+                if "Flood control exceeded" in str(e) or "Timed out" in str(e):
                     retries += 1
                     print(f"Error: {e}")
                     print(f"Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})")
@@ -58,7 +58,7 @@ class TelegramSender:
             else:
                 # 텍스트 메시지 발송
                 await self.retry_on_flood_control(self.send_telegram_message_async, chat_id, message)
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             self.queue.task_done()  # 작업 완료 알림
 
     def start(self):
