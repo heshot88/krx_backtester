@@ -15,7 +15,7 @@ class TelegramSender:
         try:
             with open(photo_path, 'rb') as photo:
                 await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=caption)
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.2)
                 # print(f"Photo sent successfully to {chat_id}")
         except TelegramError as e:
             print(f"Error sending photo: {e}")
@@ -27,7 +27,7 @@ class TelegramSender:
         try:
             await self.bot.send_message(chat_id=chat_id, text=message)
             # 0.05초 대기
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
 
             # print(f"Message sent successfully to {chat_id}")
         except TelegramError as e:
@@ -48,7 +48,7 @@ class TelegramSender:
     def start(self):
         """Worker Task 시작"""
         self.is_running = True
-        asyncio.create_task(self.message_worker())  # Worker Task 생성
+        return asyncio.create_task(self.message_worker())  # Worker Task 생성
 
     def stop(self):
         """Worker Task 중지"""
