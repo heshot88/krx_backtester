@@ -58,7 +58,7 @@ class TelegramSender:
             else:
                 # 텍스트 메시지 발송
                 await self.retry_on_flood_control(self.send_telegram_message_async, chat_id, message)
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(1)
             self.queue.task_done()  # 작업 완료 알림
 
     def start(self):
