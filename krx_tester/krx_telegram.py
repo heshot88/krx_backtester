@@ -31,17 +31,33 @@ class TelegramSender:
         except TelegramError as e:
             print(f"Error sending message: {e}")
 
+    async def retry_on_flood_control(func, *args, retry_delay=1, max_retries=3):
+        """Flood control 예외 시 지연 후 재시도하는 함수"""
+        retries = 0
+        while retries < max_retries:
+            try:
+                return await func(*args)
+            except Exception as e:
+                if "Flood control exceeded" in str(e):
+                    retries += 1
+                    print(f"Error: {e}")
+                    print(f"Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    raise e
+        print("Max retries reached. Message sending aborted.")
+
     async def message_worker(self):
         """Queue에서 메시지나 사진을 하나씩 꺼내서 발송하는 Worker Task"""
         while self.is_running:
             chat_id, message, photo_path, caption = await self.queue.get()  # asyncio.Queue에서 비동기적으로 메시지 또는 사진 정보 꺼내기
             if photo_path:
                 # photo_path가 있는 경우 사진 메시지 발송
-                await self.send_telegram_photo_async(chat_id, photo_path, caption)
+                await self.retry_on_flood_control(self.send_telegram_photo_async, chat_id, photo_path, caption)
             else:
                 # 텍스트 메시지 발송
-                await self.send_telegram_message_async(chat_id, message)
-            await asyncio.sleep(0.1)
+                await self.retry_on_flood_control(self.send_telegram_message_async, chat_id, message)
+            await asyncio.sleep(0.2)
             self.queue.task_done()  # 작업 완료 알림
 
     def start(self):
